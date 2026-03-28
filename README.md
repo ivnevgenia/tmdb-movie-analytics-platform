@@ -16,6 +16,7 @@
 A complete end-to-end batch data pipeline that extracts movie data from the TMDb API, stores it in a MinIO data lake as Parquet, loads it into a Postgres Data Warehouse (DWH), and transforms it using dbt into an automated Metabase dashboard.
 
 ## 📝 Problem Statement
+
 Analyzing movie trends requires both historical data and current snapshots. However, the TMDb API standard endpoints (/popular, /trending) only provide real-time "snapshots" without any historical context. To understand long-term shifts in movie production, genre popularity, and rating trends, we need to:
 
 1. Backfill historical data using the TMDb Discover API (years 2000–present) to capture the volume of movies released each year and their ratings.
