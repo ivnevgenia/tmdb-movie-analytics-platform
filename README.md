@@ -1,4 +1,17 @@
 # TMDb Movie Analytics & Data Engineering Pipeline
+## 📌 Table of Contents
+
+1. [Problem Statement](#problem-statement)
+2. [System Architecture Overview](#system-architecture-overview)
+3. [Architecture](#architecture)
+4. [Pipeline Type](#pipeline-type)
+5. [How to Run](#how-to-run)
+6. [Data Flow](#data-flow)
+7. [Data Layers (dbt)](#data-layers-dbt)
+8. [Key Engineering Features](#key-engineering-features)
+9. [Visualizations (Metabase)](#visualizations-metabase)
+10. [Cloud Scalability](#cloud-scalability)
+11. [Reproducibility](#reproducibility)
 
 A complete end-to-end batch data pipeline that extracts movie data from the TMDb API, stores it in a MinIO data lake as Parquet, loads it into a Postgres Data Warehouse (DWH), and transforms it using dbt into an automated Metabase dashboard.
 
@@ -18,11 +31,14 @@ Analyzing movie trends requires both historical data and current snapshots. Howe
 This project solves the “lack of history” problem by creating an automated, idempotent pipeline that produces a unified dataset ready for analytics and visualization.
 
 ## 🏗 System Architecture Overview
-
-![Architecture](./images/flow.png)
+<p align="center">
+  <img src="./images/flow.png" width="900"/>
+</p>
+<p align="center">
+  <b>End-to-end Data Pipeline: TMDb → MinIO → Postgres → dbt → Metabase</b>
+</p>
 
 ## 🏗 Architecture
-
 1.  **Orchestration**: Apache Airflow (Daily Pipeline + Manual Backfill)
 2.  **Infrastructure as Code**: Terraform (Automated MinIO bucket management)
 3.  **Data Lake**: MinIO (S3-compatible) - Raw data stored in **Parquet** format
@@ -31,14 +47,12 @@ This project solves the “lack of history” problem by creating an automated, 
 6.  **Visualization**: Metabase - Fully automated setup via REST API
 
 ## ⚙️ Pipeline Type
-
 This project uses a batch pipeline:
 
 *   Daily scheduled ingestion (Airflow DAG)
 *   Historical backfill via manual trigger
 
 ## 🚀 How to Run
-
 1.  **Clone the repository**.
 2.  **Configure Environment**:
     *   Create a `.env` file (copy from `.env.example` if available).
@@ -60,7 +74,6 @@ This project uses a batch pipeline:
     *   Open the **"TMDb Movie Analytics Dashboard"** (Collections/Our analytics)
 
 ## 🔁 Data Flow
-
 1. Airflow triggers ingestion
 2. Data pulled from TMDb API
 3. Stored as Parquet in MinIO
@@ -69,19 +82,56 @@ This project uses a batch pipeline:
 6. Exposed to Metabase dashboard
 
 ## 🔄 Data Layers (dbt)
+```mermaid
+flowchart LR
 
-Bronze
-*   Raw tables
+%% =====================
+%% BRONZE LAYER
+%% =====================
+subgraph BRONZE["🟤 Bronze Layer (Raw Data)"]
+    direction TB
+    B1[Raw TMDb API Data]
+    B2[Raw Parquet Files in MinIO]
+    B3[Unprocessed Tables in Postgres]
+end
 
-Silver
-*   Cleaned & deduplicated data
-*   Unified schema
+%% =====================
+%% SILVER LAYER
+%% =====================
+subgraph SILVER["⚪ Silver Layer (Cleaned Data)"]
+    S1[Data Cleaning]
+    S2[Deduplication]
+    S3[Schema Standardization]
+    S4[Unified Movie Dataset]
+end
 
-Gold
-*   Aggregated analytics tables
+%% =====================
+%% GOLD LAYER
+%% =====================
+subgraph GOLD["🟡 Gold Layer (Analytics)"]
+    G1[Aggregated Metrics]
+    G2[Genre Statistics]
+    G3[Yearly Trends]
+    G4[Rating Analytics]
+end
 
+%% =====================
+%% FLOWS
+%% =====================
+B1 --> B2
+B2 --> B3
+B3 --> S1
+
+S1 --> S2
+S2 --> S3
+S3 --> S4
+
+S4 --> G1
+S4 --> G2
+S4 --> G3
+S4 --> G4
+```
 ## 💎 Key Engineering Features
-
 *   **Native Partitioning**: Postgres tables are partitioned by `snapshot_date`. New partitions are created dynamically by the ingestion script.
 *   **Hybrid Data Source**: Combines real-time API results with bulk historical data.
 *   **Zero-UI BI Setup**: Metabase is configured via Python scripts that use the API to create the DB connection, cards, and dashboard automatically.
@@ -95,8 +145,9 @@ The automated dashboard includes:
 4. **Genre Distribution (All Time)** – a pie chart displaying the percentage of movies belonging to each genre.
 5. **Average Rating by Genre (Historical)** – a horizontal bar chart showing the average rating per genre using historical data (2000–present).
 6. **Movies Produced by Year (Historical)** – a bar chart illustrating the number of movies released each year since 2000.
-
-![Dashboard](./images/dashboard.png)
+<p align="center">
+  <img src="./images/dashboard.png" width="900"/>
+</p>
 
 ## ☁️ Cloud Scalability
 Designed for seamless migration:
@@ -106,7 +157,6 @@ Designed for seamless migration:
 *   **Terraform** -> Ready to manage cloud-native resources.
 
 ## ✅ Reproducibility
-
 The project is fully reproducible via Docker:
 *   All services run locally
 *   Minimal setup required
