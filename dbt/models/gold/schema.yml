@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: fact_movie_popularity
+    description: "Fact table for movie popularity metrics by snapshot date"
+    columns:
+      - name: movie_id
+        tests:
+          - not_null
+      - name: snapshot_date
+        tests:
+          - not_null
+      - name: popularity
+        tests:
+          - not_null
+
+  - name: dim_movies
+    description: "Dimension table for movies with flattened genres"
+    columns:
+      - name: movie_id
+        tests:
+          - not_null
+          - unique
+      - name: title
+        tests:
+          - not_null

@@ -1,0 +1,153 @@
+x-airflow-common:
+  &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+    # TMDb
+    TMDB_API_KEY: ${TMDB_API_KEY}
+    # Warehouse
+    WH_HOST: postgres
+    WH_PORT: 5432
+    WH_USER: ${POSTGRES_USER}
+    WH_PASSWORD: ${POSTGRES_PASSWORD}
+    WH_DB: ${POSTGRES_DB}
+    # MinIO
+    MINIO_ENDPOINT: minio:9000
+    MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+    MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+    MINIO_BUCKET: ${MINIO_DEFAULT_BUCKETS}
+  volumes:
+    - ${AIRFLOW_PROJ_DIR:-.}/airflow/dags:/opt/airflow/dags
+    - ${AIRFLOW_PROJ_DIR:-.}/airflow/logs:/opt/airflow/logs
+    - ${AIRFLOW_PROJ_DIR:-.}/airflow/plugins:/opt/airflow/plugins
+    - ${AIRFLOW_PROJ_DIR:-.}/ingestion:/opt/airflow/ingestion
+    - ${AIRFLOW_PROJ_DIR:-.}/dbt:/opt/airflow/dbt
+    - ${AIRFLOW_PROJ_DIR:-.}/scripts:/opt/airflow/scripts 
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Airflow will use a separate DB within the same instance, so we need to initialize it
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_PORT}:9000"
+      - "${MINIO_CONSOLE_PORT}:9001"
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-init:
+    <<: *airflow-common
+    command: >
+      bash -c "airflow db migrate &&
+      airflow users create
+      --username airflow
+      --firstname airflow
+      --lastname airflow
+      --role Admin
+      --email airflow@example.com
+      --password airflow"
+    user: "0:0"
+
+  metabase:
+    image: metabase/metabase
+    ports:
+      - "${METABASE_PORT}:3000"
+    environment:
+      MB_DB_FILE: /metabase-data/metabase.db
+      MB_SETUP_TOKEN: ${METABASE_SETUP_TOKEN}
+    volumes:
+      - ./metabase-data:/metabase-data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  metabase-setup:
+    <<: *airflow-common
+    command: python /opt/airflow/scripts/setup_metabase.py
+    environment:
+      <<: *airflow-common-env
+      METABASE_ADMIN_EMAIL: ${METABASE_ADMIN_EMAIL}
+      METABASE_ADMIN_PASSWORD: ${METABASE_ADMIN_PASSWORD}
+      METABASE_ADMIN_NAME: ${METABASE_ADMIN_NAME}
+      METABASE_SETUP_TOKEN: ${METABASE_SETUP_TOKEN}
+    volumes:
+      - ./scripts:/opt/airflow/scripts
+    depends_on:
+      metabase:
+        condition: service_started
+
+  terraform-setup:
+    image: hashicorp/terraform:latest
+    working_dir: /workspace/terraform
+    volumes:
+      - .:/workspace
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+    entrypoint: >
+      sh -c "terraform init && terraform apply -auto-approve"
+    depends_on:
+      minio:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  minio_data:

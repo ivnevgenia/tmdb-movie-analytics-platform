@@ -1,0 +1,28 @@
+name: 'tmdb_analytics'
+version: '1.0.0'
+config-version: 2
+
+profile: 'tmdb_analytics'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  tmdb_analytics:
+    bronze:
+      +schema: raw_tmdb
+      +materialized: view
+    silver:
+      +schema: core_tmdb
+      +materialized: table
+    gold:
+      +schema: gold_tmdb
+      +materialized: table

@@ -1,0 +1,39 @@
+﻿# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Airflow
+airflow/logs/
+airflow/plugins/__pycache__/
+airflow/dags/__pycache__/
+
+# dbt
+dbt/target/
+dbt/dbt_modules/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml 
+
+# Docker / Databases / Data Lake
+postgres_data/
+minio_data/
+metabase-data/
+*.parquet
+*.csv
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# IDE
+.vscode/
+.idea/

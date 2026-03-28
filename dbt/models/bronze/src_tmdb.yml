@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: tmdb_raw
+    schema: raw_tmdb
+    tables:
+      - name: trending
+      - name: popular
+      - name: top_rated
+      - name: movie_details
+      - name: genres
+      - name: discover
