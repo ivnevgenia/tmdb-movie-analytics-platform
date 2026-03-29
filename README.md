@@ -2,7 +2,22 @@
 
 A complete end-to-end batch data pipeline that extracts movie data from the TMDb API, stores it in a MinIO data lake as Parquet, loads it into a Postgres Data Warehouse (DWH), and transforms it using dbt into an automated Metabase dashboard.
 
-## 📝 Problem Statement
+## Table of Contents
+
+1. [Problem Statement](#problem-statement)
+2. [System Architecture Overview](#system-architecture-overview)
+3. [Architecture](#architecture)
+4. [Pipeline Type](#pipeline-type)
+5. [How to Run](#how-to-run)
+6. [Data Flow](#data-flow)
+7. [Data Layers (dbt)](#data-layers-dbt)
+8. [Key Engineering Features](#key-engineering-features)
+9. [Visualizations (Metabase)](#visualizations-metabase)
+10. [Cloud Scalability](#cloud-scalability)
+11. [Reproducibility](#reproducibility)
+
+## Problem Statement
+
 Analyzing movie trends requires both historical data and current snapshots. However, the TMDb API standard endpoints (/popular, /trending) only provide real-time "snapshots" without any historical context. To understand long-term shifts in movie production, genre popularity, and rating trends, we need to:
 
 1. Backfill historical data using the TMDb Discover API (years 2000–present) to capture the volume of movies released each year and their ratings.
@@ -17,12 +32,12 @@ Analyzing movie trends requires both historical data and current snapshots. Howe
 
 This project solves the “lack of history” problem by creating an automated, idempotent pipeline that produces a unified dataset ready for analytics and visualization.
 
-## 🏗 System Architecture Overview
+## System Architecture Overview
+<p align="center">
+  <img src="./images/flow.png" width="900"/>
+</p>
 
-![Architecture](./images/flow.png)
-
-## 🏗 Architecture
-
+## Architecture
 1.  **Orchestration**: Apache Airflow (Daily Pipeline + Manual Backfill)
 2.  **Infrastructure as Code**: Terraform (Automated MinIO bucket management)
 3.  **Data Lake**: MinIO (S3-compatible) - Raw data stored in **Parquet** format
@@ -30,15 +45,13 @@ This project solves the “lack of history” problem by creating an automated, 
 5.  **Transformations**: dbt (dbt-core) - Multi-layered modeling (Bronze -> Silver -> Gold)
 6.  **Visualization**: Metabase - Fully automated setup via REST API
 
-## ⚙️ Pipeline Type
-
+## Pipeline Type
 This project uses a batch pipeline:
 
 *   Daily scheduled ingestion (Airflow DAG)
 *   Historical backfill via manual trigger
 
-## 🚀 How to Run
-
+## How to Run
 1.  **Clone the repository**.
 2.  **Configure Environment**:
     *   Create a `.env` file (copy from `.env.example` if available).
@@ -59,8 +72,7 @@ This project uses a batch pipeline:
     *   Login: `admin@example.com` / `metabase_password123`.
     *   Open the **"TMDb Movie Analytics Dashboard"** (Collections/Our analytics)
 
-## 🔁 Data Flow
-
+## Data Flow
 1. Airflow triggers ingestion
 2. Data pulled from TMDb API
 3. Stored as Parquet in MinIO
@@ -68,26 +80,63 @@ This project uses a batch pipeline:
 5. Transformed via dbt
 6. Exposed to Metabase dashboard
 
-## 🔄 Data Layers (dbt)
+## Data Layers (dbt)
+```mermaid
+flowchart LR
 
-Bronze
-*   Raw tables
+%% =====================
+%% BRONZE LAYER
+%% =====================
+subgraph BRONZE["🟤 Bronze Layer (Raw Data)"]
+    direction TB
+    B1[Raw TMDb API Data]
+    B2[Raw Parquet Files in MinIO]
+    B3[Unprocessed Tables in Postgres]
+end
 
-Silver
-*   Cleaned & deduplicated data
-*   Unified schema
+%% =====================
+%% SILVER LAYER
+%% =====================
+subgraph SILVER["⚪ Silver Layer (Cleaned Data)"]
+    S1[Data Cleaning]
+    S2[Deduplication]
+    S3[Schema Standardization]
+    S4[Unified Movie Dataset]
+end
 
-Gold
-*   Aggregated analytics tables
+%% =====================
+%% GOLD LAYER
+%% =====================
+subgraph GOLD["🟡 Gold Layer (Analytics)"]
+    G1[Aggregated Metrics]
+    G2[Genre Statistics]
+    G3[Yearly Trends]
+    G4[Rating Analytics]
+end
 
-## 💎 Key Engineering Features
+%% =====================
+%% FLOWS
+%% =====================
+B1 --> B2
+B2 --> B3
+B3 --> S1
 
+S1 --> S2
+S2 --> S3
+S3 --> S4
+
+S4 --> G1
+S4 --> G2
+S4 --> G3
+S4 --> G4
+```
+## Key Engineering Features
 *   **Native Partitioning**: Postgres tables are partitioned by `snapshot_date`. New partitions are created dynamically by the ingestion script.
 *   **Hybrid Data Source**: Combines real-time API results with bulk historical data.
 *   **Zero-UI BI Setup**: Metabase is configured via Python scripts that use the API to create the DB connection, cards, and dashboard automatically.
 *   **Schema Evolution**: Uses SQLAlchemy inspector to ensure Parquet-to-Postgres mapping remains consistent even if API fields change.
 
-## 📊 Visualizations (Metabase)
+## Visualizations (Metabase)
 The automated dashboard includes:
 1. **Total Movies in Database** – a scalar showing the total number of movies stored in the warehouse.
 2. **All-Time Highest Rated Movies** – a table of the top 10 movies by vote average (all‑time) with rendered posters.
@@ -95,18 +144,18 @@ The automated dashboard includes:
 4. **Genre Distribution (All Time)** – a pie chart displaying the percentage of movies belonging to each genre.
 5. **Average Rating by Genre (Historical)** – a horizontal bar chart showing the average rating per genre using historical data (2000–present).
 6. **Movies Produced by Year (Historical)** – a bar chart illustrating the number of movies released each year since 2000.
+<p align="center">
+  <img src="./images/dashboard.png" width="900"/>
+</p>
 
-![Dashboard](./images/dashboard.png)
-
-## ☁️ Cloud Scalability
+## Cloud Scalability
 Designed for seamless migration:
 *   **MinIO** -> AWS S3 / GCS
 *   **Postgres** -> AWS RDS / BigQuery / Snowflake
 *   **Airflow** -> Managed Airflow (MWAA / Astronomer)
 *   **Terraform** -> Ready to manage cloud-native resources.
 
-## ✅ Reproducibility
-
+## Reproducibility
 The project is fully reproducible via Docker:
 *   All services run locally
 *   Minimal setup required
