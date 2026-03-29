@@ -14,6 +14,7 @@ flattened_genres AS (
     FROM flattened_genre_ids f
     LEFT JOIN {{ ref('stg_genres') }} g ON f.genre_id = g.genre_id
     WHERE g.genre_name IS NOT NULL
+      AND g.snapshot_date = (SELECT MAX(snapshot_date) FROM {{ ref('stg_genres') }})
 )
 SELECT 
     genre_name,

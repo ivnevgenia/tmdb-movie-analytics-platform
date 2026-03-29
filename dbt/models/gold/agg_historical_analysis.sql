@@ -33,6 +33,7 @@ flattened_genres AS (
         g.genre_name
     FROM flattened_genre_ids f
     LEFT JOIN {{ ref('stg_genres') }} g ON f.genre_id = g.genre_id
+    WHERE g.snapshot_date = (SELECT MAX(snapshot_date) FROM {{ ref('stg_genres') }})
 ),
 yearly_genres AS (
     SELECT 
